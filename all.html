@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Спортивный центр - Главная</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Шапка -->
+    <header class="header">
+        <div class="logo">
+            <i class="fas fa-dumbbell"></i>
+            <h1>СпортЦентр</h1>
+        </div>
+        <nav class="nav">
+            <ul>
+                <li><a href="#" class="active">Главная</a></li>
+                <li><a href="#">Занятия</a></li>
+                <li><a href="#">Абонементы</a></li>
+                <li><a href="#">Тренеры</a></li>
+                <li><a href="#">Личный кабинет</a></li>
+                <li><a href="#" class="btn-login">Войти</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Основное содержание -->
+    <main class="main">
+        <section class="hero">
+            <h2>Занимайтесь спортом с удовольствием</h2>
+            <p>Выберите направление, запишитесь онлайн, оплатите абонемент — всё в одном приложении.</p>
+            <button class="btn-primary" onclick="changeUser('admin')">Войти как администратор</button>
+            <button class="btn-primary" onclick="changeUser('user')" style="margin-left: 10px; background: #4caf50;">Войти как клиент</button>
+        </section>
+
+        <!-- Форма поиска занятий -->
+        <section class="search-form">
+            <h3>Поиск занятий</h3>
+            <form>
+                <select id="typeFilter">
+                    <option value="">Все направления</option>
+                    <option value="йога">Йога</option>
+                    <option value="фитнес">Фитнес</option>
+                    <option value="пилатес">Пилатес</option>
+                    <option value="бассейн">Бассейн</option>
+                </select>
+                <input type="date" id="dateFilter">
+                <input type="time" id="timeFilter">
+                <button type="button" onclick="applySearch()">Найти</button>
+            </form>
+            <p class="note">Кнопка "Найти" загружает список доступных занятий ниже.</p>
+        </section>
+
+        <!-- список занятий -->
+        <section class="lessons">
+            <h3>Доступные занятия</h3>
+            <div class="filters">
+                <button class="btn-filter" onclick="filterLessons('all')">Все</button>
+                <button class="btn-filter" onclick="filterLessons('йога')">Йога</button>
+                <button class="btn-filter" onclick="filterLessons('фитнес')">Фитнес</button>
+                <button class="btn-filter" onclick="filterLessons('бассейн')">Бассейн</button>
+            </div>
+            <div class="lesson-list" id="lessonList">
+                <!-- здесь будут занятия -->
+            </div>
+            <div class="pagination">
+                <button onclick="loadPage(1)">1</button>
+                <button onclick="loadPage(2)">2</button>
+                <button onclick="loadPage(3)">3</button>
+                <button onclick="loadNextPage()">Далее →</button>
+            </div>
+        </section>
+
+        <!-- форма для администратора -->
+        <section class="admin-form">
+            <h3>Панель администратора</h3>
+            <div class="admin-actions" id="adminActions">
+                <!-- кнопки появятся когда войдёт админ -->
+            </div>
+            <p class="note">Для доступа войдите как администратор</p>
+        </section>
+
+        <!-- форма ошибки -->
+        <section class="error-form">
+            <h3>Ошибка</h3>
+            <p> Не удалось загрузить данные</p>
+            <button class="btn-error" onclick="location.reload()">Обновить</button>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>© 2025 Спортивный центр</p>
+        <p>Адрес: СК БГУ (около общаги)</p>
+    </footer>
+
+    <script>
+        //модель
+        class SportCenterModel {
+            #lessons = [];
+
+            constructor(lessons = []) {
+                this.#lessons = lessons;
+            }
+
+            getLessons(skip = 0, top = 10, filterConfig = {}) {
+                let filtered = [...this.#lessons];
+                
+                if (Object.keys(filterConfig).length > 0) {
+                    filtered = filtered.filter(lesson => {
+                        for (const key in filterConfig) {
+                            if (lesson[key] !== filterConfig[key]) return false;
+                        }
+                        return true;
+                    });
+                }
+                
+                return filtered.slice(skip, skip + top);
+            }
+
+            getLesson(id) {
+                return this.#lessons.find(l => l.id === id) || null;
+            }
+
+            addLesson(lesson) {
+                if (!lesson.id) lesson.id = 'id_' + Date.now();
+                if (!lesson.createdAt) lesson.createdAt = new Date();
+                
+                this.#lessons.push(lesson);
+                console.log('Добавлено:', lesson);
+                return true;
+            }
+
+            editLesson(id, updates) {
+                const index = this.#lessons.findIndex(l => l.id === id);
+                if (index === -1) return false;
+                
+                this.#lessons[index] = {...this.#lessons[index], ...updates};
+                return true;
+            }
+
+            removeLesson(id) {
+                const initial = this.#lessons.length;
+                this.#lessons = this.#lessons.filter(l => l.id !== id);
+                return this.#lessons.length !== initial;
+            }
+
+            getTotalCount() {
+                return this.#lessons.length;
+            }
+
+            getAllLessons() {
+                return [...this.#lessons];
+            }
+        }
+
+        // тест данные 
+        const testLessons = [
+            {
+                id: '1',
+                title: 'Утренняя йога',
+                description: 'Йога для пробуждения',
+                createdAt: new Date('2024-12-25T10:00:00'),
+                author: 'Анна',
+                type: 'йога',
+                duration: 60,
+                price: 500,
+                location: 'СК БГУ'
+            },
+            {
+                id: '2', 
+                title: 'Вечерний бассейн',
+                description: 'Плавание после работы',
+                createdAt: new Date('2024-12-25T18:00:00'),
+                author: 'Сергей',
+                type: 'бассейн',
+                duration: 90,
+                price: 700,
+                location: 'СК БГУ'
+            },
+            {
+                id: '3',
+                title: 'Фитнес',
+                description: 'Силовая тренировка',
+                createdAt: new Date('2024-12-26T09:00:00'),
+                author: 'Мария',
+                type: 'фитнес',
+                duration: 60,
+                price: 450,
+                location: 'СК БГУ'
+            },
+            {
+                id: '4',
+                title: 'Пилатес',
+                description: 'Упражнения на гибкость',
+                createdAt: new Date('2024-12-26T11:00:00'),
+                author: 'Ольга',
+                type: 'пилатес',
+                duration: 55,
+                price: 400,
+                location: 'СК БГУ'
+            },
+            {
+                id: '5',
+                title: 'Аэробика',
+                description: 'Танцевальная тренировка',
+                createdAt: new Date('2024-12-26T17:00:00'),
+                author: 'Елена',
+                type: 'аэробика',
+                duration: 60,
+                price: 350,
+                location: 'СК БГУ'
+            }
+        ];
+
+        // глоб модель
+        const sportModel = new SportCenterModel(testLessons);
+        let currentUser = null;
+
+        // ФУНКЦИИ
+
+        // Инициализация при загрузке
+        function init() {
+            renderLessons();
+            updateUserDisplay();
+        }
+
+        // Отобразить занятия
+        function renderLessons(filterType = 'all') {
+            const container = document.getElementById('lessonList');
+            if (!container) return;
+            
+            const filters = {
+                'all': {},
+                'йога': { type: 'йога' },
+                'фитнес': { type: 'фитнес' },
+                'бассейн': { type: 'бассейн' },
+                'пилатес': { type: 'пилатес' }
+            };
+            
+            const lessons = sportModel.getLessons(0, 20, filters[filterType] || {});
+            
+            container.innerHTML = '';
+            
+            if (lessons.length === 0) {
+                container.innerHTML = '<p class="no-lessons">Нет занятий</p>';
+                return;
+            }
+            
+            lessons.forEach(lesson => {
+                const card = document.createElement('div');
+                card.className = 'lesson-card';
+                card.innerHTML = `
+                    <h4>${lesson.title}</h4>
+                    <p><i class="fas fa-tag"></i> ${lesson.type}</p>
+                    <p><i class="fas fa-clock"></i> ${lesson.duration} мин</p>
+                    <p><i class="fas fa-ruble-sign"></i> ${lesson.price} руб.</p>
+                    <p>${lesson.description}</p>
+                    <button class="btn-small" onclick="signUp('${lesson.id}')">Записаться</button>
+                    ${currentUser?.role === 'admin' ? `
+                        <button class="btn-small" style="background:orange" onclick="editLesson('${lesson.id}')">✏️</button>
+                        <button class="btn-small" style="background:red" onclick="deleteLesson('${lesson.id}')">🗑️</button>
+                    ` : ''}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Обновить отображение пользователя
+        function updateUserDisplay() {
+            const loginBtn = document.querySelector('.btn-login');
+            const adminSection = document.getElementById('adminActions');
+            
+            if (currentUser) {
+                if (loginBtn) {
+                    loginBtn.textContent = currentUser.role === 'admin' ? 'Админ' : currentUser.name;
+                    loginBtn.style.background = '#4caf50';
+                }
+                
+                if (currentUser.role === 'admin' && adminSection) {
+                    adminSection.innerHTML = `
+                        <button class="btn-admin" onclick="addNewLesson()">+ Добавить занятие</button>
+                        <button class="btn-admin">Управление пользователями</button>
+                    `;
+                }
+            } else {
+                if (loginBtn) {
+                    loginBtn.textContent = 'Войти';
+                    loginBtn.style.background = '';
+                }
+                if (adminSection) {
+                    adminSection.innerHTML = '<p>Требуется вход как администратор</p>';
+                }
+            }
+        }
+
+
+        // 1. Изменить пользователя
+        window.changeUser = function(role) {
+            if (role === null) {
+                currentUser = null;
+            } else {
+                currentUser = {
+                    name: role === 'admin' ? 'Администратор' : 'Полешко Анна',
+                    role: role
+                };
+            }
+            updateUserDisplay();
+            renderLessons();
+            console.log('Пользователь:', currentUser?.role || 'неавторизован');
+        };
+
+        // 2. Добавить занятие (для админа)
+        window.addNewLesson = function() {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert('Только для администратора');
+                return;
+            }
+            
+            const title = prompt('Название:');
+            const type = prompt('Тип (йога/фитнес/бассейн):');
+            
+            if (title && type) {
+                sportModel.addLesson({
+                    title: title,
+                    description: prompt('Описание:', 'Новое занятие'),
+                    author: currentUser.name,
+                    type: type,
+                    duration: parseInt(prompt('Длительность (мин):', '60')) || 60,
+                    price: parseInt(prompt('Цена:', '500')) || 500,
+                    location: 'СК БГУ'
+                });
+                renderLessons();
+            }
+        };
+
+        // 3. Удалить занятие
+        window.deleteLesson = function(id) {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert('Только для администратора');
+                return;
+            }
+            
+            if (confirm('Удалить занятие?')) {
+                sportModel.removeLesson(id);
+                renderLessons();
+            }
+        };
+
+        // 4. Редактировать занятие
+        window.editLesson = function(id) {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert('Только для администратора');
+                return;
+            }
+            
+            const lesson = sportModel.getLesson(id);
+            if (!lesson) return;
+            
+            const newTitle = prompt('Новое название:', lesson.title);
+            if (newTitle) {
+                sportModel.editLesson(id, {title: newTitle});
+                renderLessons();
+            }
+        };
+
+        // 5. Записаться
+        window.signUp = function(id) {
+            const lesson = sportModel.getLesson(id);
+            if (lesson) {
+                alert(`Вы записались на: ${lesson.title}`);
+            }
+        };
+
+        // 6. Фильтрация
+        window.filterLessons = function(type) {
+            renderLessons(type);
+        };
+
+        // 7. Поиск
+        window.applySearch = function() {
+            const type = document.getElementById('typeFilter').value;
+            filterLessons(type || 'all');
+        };
+
+        // 8. Получить модель (для консоли)
+        window.getModel = function() {
+            return sportModel;
+        };
+
+        // Запускаем при загрузке
+        window.addEventListener('DOMContentLoaded', init);
+
+        //в консоль
+        console.log(' Команды для тестирования:');
+        console.log('1. sportModel.getTotalCount() - количество занятий');
+        console.log('2. sportModel.getAllLessons() - все занятия');
+        console.log('3. changeUser("admin") - войти как админ');
+        console.log('4. changeUser("user") - войти как пользователь');
+        console.log('5. changeUser(null) - выйти');
+        console.log('6. addNewLesson() - добавить занятие (если вы админ)');
+        console.log('7. filterLessons("йога") - показать только йогу');
+    </script>
+</body>
+</html>
